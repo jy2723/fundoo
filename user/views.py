@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from .serializer import RegisterSerializer
 from .serializer import LoginSerializer
 from rest_framework.response import Response
-   
+
 # Create your views here.
 class UserAPI(APIView):    
     def post(self, request):
