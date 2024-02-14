@@ -10,7 +10,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['id','username','email','password','first_name','last_name','date_joined']
         extra_kwargs = {'password': {'write_only': True}}
         read_only_fields = ['date_joined']
-        
+                
+    # validation logic
+
     def validate(self, attrs):
         username = attrs.get('username')
         password = attrs.get('password')
@@ -26,7 +28,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         if "@" not in email:
             raise serializers.ValidationError("Email must contain the @ symbol.")
 
-        # validation logic
         return super().validate(attrs)
     
     def create(self, validated_data):
