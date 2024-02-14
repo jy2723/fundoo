@@ -1,33 +1,34 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
+from django.contrib.auth import authenticate
 import json
-from .models import Users
+from .models import User
 from django.forms import model_to_dict
+from rest_framework.views import APIView
+from .serializer import RegisterSerializer
+from .serializer import LoginSerializer
+from rest_framework.response import Response
 
 # Create your views here.
-def register_user(request):
-    if request.method != 'POST':
-         return JsonResponse({'msg': 'Method not allowed'})
-    try:
-        data = json.loads(request.body)
-        user = Users.objects.create(**data)
-        return JsonResponse({'message': 'User registered', 'status': 201, 
-                             'data': model_to_dict(user)})
-    except Exception as e:
-        return JsonResponse({'message': str(e), 'status': 400})
-    
-def login(request):
-    if request.method != 'POST':
-        return JsonResponse({'msg': 'Method not allowed'})
-    try:
-        data = json.loads(request.body)
-        email = data.get('email')
-        passwaord = data.get('passwaord')
-        if Users.objects.filter(email = email, passwaord=passwaord).first():
-            return JsonResponse({'message': 'Login successful', 'status': 200})
+class UserAPI(APIView):    
+    def post(self, request):
+        try:
+            serializer = RegisterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return JsonResponse({'message': 'User registered', 'status': 201, 'data': serializer.data},status=201)
+        except Exception as e:
+            return JsonResponse({'message': str(e), 'status': 400},status=400)
+
+class LoginAPI(APIView): 
+    def post(self,request):
+        try:
+            serializer = LoginSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'message': 'Login successful', 'status': 200}, status=200)
         # User authentication failed
-        return JsonResponse({'message': 'Invalid credentials', 'status': 401})
-    except json.JSONDecodeError:
-        return JsonResponse({'message': 'Invalid JSON data in request body', 'status': 400})
-    except Exception as e:
-        return JsonResponse({'message': str(e), 'status': 400})
+        except json.JSONDecodeError:
+            return JsonResponse({'message': 'Invalid JSON data in request body', 'status': 400})
+        except Exception as e:
+            return JsonResponse({'message': str(e), 'status': 400})

@@ -1,10 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
-class Users(models.Model):
-    username = models.CharField(max_length=20,null=False,unique=True)
-    email = models.EmailField(max_length=254,null=False)
-    passwaord = models.CharField(max_length=50,null=False)
-    location = models.CharField(max_length=50)
+class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     
 
