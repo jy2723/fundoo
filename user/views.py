@@ -1,7 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import authenticate
-import json
 from django.conf import settings
 from .models import User
 from django.forms import model_to_dict
@@ -10,7 +9,6 @@ from .serializer import RegisterSerializer
 from .serializer import LoginSerializer
 from rest_framework.response import Response
 from django.core.mail import send_mail
-from django.core.mail import send_mass_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.reverse import reverse
 import jwt
@@ -31,7 +29,7 @@ class UserAPI(APIView):
             url = f'{settings.BASE_URL}{reverse("userApi")}?token={token}'
             email = request.data['email']
             subject = 'This is mail from django server'
-            message = f'The url \n {url}'
+            message = f'The url to verify\n {url}'
             from_mail = settings.EMAIL_HOST_USER
             recipient_list = [email]
             send_mail(subject, message, from_mail, recipient_list)
@@ -45,7 +43,7 @@ class UserAPI(APIView):
         try:
             token = request.query_params.get('token')
             if not token:
-                pass
+                return Response({'message': 'Invalid token', 'status': 400}, status=400)
             payload = jwt.decode(token, key=settings.SIMPLE_JWT.get('SIGNING_KEY'), algorithms=[settings.SIMPLE_JWT.get('ALGORITHM')])
             user = User.objects.get(id=payload['user_id'])
             user.is_verified = True
@@ -62,7 +60,7 @@ class UserAPI(APIView):
         except Exception as e:
             return JsonResponse({'message': str(e), 'status': 400})
         
-class UserApi(APIView):
+class AuthUserAPI(APIView):
 
     def post(self, request):
         try:
