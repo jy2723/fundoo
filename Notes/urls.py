@@ -9,10 +9,23 @@ my_viewset = LabelAPI.as_view({
     'delete': 'delete'
 })
 
+archive = views.ArchiveTrashAPI.as_view({
+    'patch': 'update_archive',
+    'get': 'get_archived_notes'    
+})
+
+trash = views.ArchiveTrashAPI.as_view({
+    'patch': 'update_trash',    
+    'get': 'get_trash_notes'
+})
+
+
 urlpatterns = [
     path('', views.CreateAPI.as_view()),
     path('retrive',views.CreateAPI.as_view()),
     path('update',views.CreateAPI.as_view()),
     path('delete',views.CreateAPI.as_view()),
     path('label', my_viewset, name = 'LabelApi'),
+    path('archive', archive),
+    path('trash', trash)
 ]
