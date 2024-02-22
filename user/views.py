@@ -43,7 +43,7 @@ class UserAPI(APIView):
         try:
             token = request.query_params.get('token')
             if not token:
-                return Response({'message': 'Invalid token', 'status': 400}, status=400)
+                return Response({'message': 'Invalid Token'})
             payload = jwt.decode(token, key=settings.SIMPLE_JWT.get('SIGNING_KEY'), algorithms=[settings.SIMPLE_JWT.get('ALGORITHM')])
             user = User.objects.get(id=payload['user_id'])
             user.is_verified = True
@@ -67,7 +67,8 @@ class AuthUserAPI(APIView):
             serializer = LoginSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'Login successful', 'status': 200}, status=200)
+            token = RefreshToken.for_user(serializer.instance).access_token
+            return Response({'message': 'Login successful', 'status': 200,'token':str(token)}, status=200)
         # User authentication failed
         except Exception as e:
             return Response({'message': str(e), 'status': 400})

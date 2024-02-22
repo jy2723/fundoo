@@ -27,5 +27,6 @@ urlpatterns = [
     path('delete',views.CreateAPI.as_view()),
     path('label', my_viewset, name = 'LabelApi'),
     path('archive', archive),
-    path('trash', trash)
+    path('trash', trash),
+    path('getone',views.GetoneAPI.as_view())
 ]
