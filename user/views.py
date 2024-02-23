@@ -12,8 +12,10 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.reverse import reverse
 import jwt
+import json
 from .models import User
 from jwt import PyJWTError
+from .tasks import send_email_task
 
 
 # Create your views here.
@@ -24,15 +26,15 @@ class UserAPI(APIView):
         try:
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            serializer.instance = serializer.save()
             token = RefreshToken.for_user(serializer.instance).access_token
             url = f'{settings.BASE_URL}{reverse("userApi")}?token={token}'
-            email = request.data['email']
             subject = 'This is mail from django server'
-            message = f'The url to verify\n {url}'
+            message = f'The url \n {url}'
             from_mail = settings.EMAIL_HOST_USER
+            email = request.data['email']
             recipient_list = [email]
-            send_mail(subject, message, from_mail, recipient_list)
+            send_email_task.delay(subject, message,from_mail, recipient_list)
             return Response({'message': 'User registered', 'status': 201, 
                                 'data': serializer.data}, status=201)
         except Exception as e:
@@ -64,6 +66,7 @@ class AuthUserAPI(APIView):
 
     def post(self, request):
         try:
+            # celery_send_email.delay('Token', 'email')
             serializer = LoginSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
