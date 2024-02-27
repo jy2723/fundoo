@@ -2,13 +2,16 @@ from rest_framework.views import APIView
 from .serializer import NotesSerializer
 from rest_framework.response import Response
 from .models import Notes
+from user.models import User
+from .models import Collaborator
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .serializer import LabelSerializer
+from .serializer import LabelSerializer,CollaboratorSerializer
 from .models import Labels
 from rest_framework import viewsets
 from .utils import Redismanager
 import json
+from django.db.models import Q
 
 class CreateAPI(APIView):
     
@@ -29,14 +32,16 @@ class CreateAPI(APIView):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
-    def get(self,request):
+    def get(self, request):
         try:
             cache_notes = Redismanager.get(f'user_{request.user.id}')
             if cache_notes:
-                return Response({'message': 'Successfully Fetched Data from Cache', 'status': 200, 'data': cache_notes}, status=200)
-            notes = Notes.objects.filter(user_id=request.user.id)
+                return Response({'message': 'Successfully Fetched Data from Cache', 'status': 200, 'data': cache_notes_dict}, status=200)
+            # If cache_notes is empty or None, proceed with fetching data from database
+            lookup = Q(user_id=request.user.id) | Q(collaborator__user=request.user)
+            notes = Notes.objects.filter(lookup)
             serializer = NotesSerializer(notes, many=True)
-            return Response({'message':'succusfully fetched data','status': 201,'data':serializer.data},status=201)
+            return Response({'message': 'Successfully Fetched Data', 'status': 200, 'data': serializer.data}, status=200)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
         
@@ -94,7 +99,6 @@ class GetoneAPI(APIView):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
             
-        
 
 class ArchiveTrashAPI(viewsets.ViewSet):        
     authentication_classes = (JWTAuthentication,)
@@ -205,5 +209,98 @@ class LabelAPI(viewsets.ViewSet):
             return Response({'message': str(e), 'status': 400}, status=400)
         
         
+class CollaboratorAPI(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    
+    def post(self, request):
+        try:
+            user_id = request.user.id
+            user_ids = request.data.get('user_ids',[])
+            note_id = request.data.get('note_id') 
+            access_type = request.data.get('access_type','read only')
 
+            if user_id is None or note_id is None:
+                return Response({'message': 'user_id and note_id must be provided','status': 400}, status=400)
+
+            note = Notes.objects.get(id=note_id)
+            
+            if note.user_id != user_id:
+                return Response({'message': 'You are not the owner of this note', 'status': 403}, status=403)
+            
+            for user_id in user_ids:
+                user = User.objects.get(id=user_id)
+
+                collaborator, created = Collaborator.objects.get_or_create(user=user, note=note, access_type=access_type)
+                if created:
+                    print(f"Collaborator created: {collaborator}")
+                else:
+                    print(f"Collaborator already exists for user {user_id} and note {note_id}")
+
+            return Response({'message': 'Notes shared to user successfully', 'status': 200}, status=200)
+
+
+        except (User.DoesNotExist, Notes.DoesNotExist):
+            return Response({'message': 'User or notes does not exist','status': 400}, status=400)
+
+        except Exception as e:
+            return Response({'message': str(e), 'status': 400}, status=400)
+        
+    def delete(self,request):
+        try:
+            user_id = request.user.id
+            note_id = request.data.get('note_id')
+            user_ids = request.data.get('user_ids',[])
+
+            user = User.objects.get(id=user_id)
+            note = Notes.objects.get(id=note_id)
+            
+            if note.user_id != user_id:
+                return Response({'message': 'You are not the owner of this note', 'status': 403}, status=403)
+            
+            for user_id in user_ids:
+                try:
+                    user = User.objects.get(id=user_id)
+                    collaborator = Collaborator.objects.get(user=user, note=note)
+                    collaborator.delete()
+                    
+                except collaborator.DoesNotExist:
+                    return Response({"message": 'collaborator does not exist','status':400},status=400)
+                
+            return Response({'message': 'Collaborator removed from note successfully', 'status':200},status=200)
+        
+        except (User.DoesNotExist, Notes.DoesNotExist, Collaborator.DoesNotExist):
+            return Response({'message': 'User, Note, or Collaborator not found','status':400}, status=400)
+                
+        except Exception as e:
+            return Response({'message': str(e), 'status': 400}, status=400)
+        
+# class CollaboratorAPI(APIView):
+    
+#     authentication_classes = (JWTAuthentication,)
+#     permission_classes = (IsAuthenticated,)
+    
+#     def post(self, request):
+#         try:
+#             request.data.update({'user_id': request.user.id})
+#             serializer = CollaboratorSerializer(data=request.data)
+#             serializer.is_valid(raise_exception=True)
+#             serializer.save() 
+#             return Response({'message': f'Note Shared to {request.data["collaborator"]}', 'status': 200}, status=200)
+#         except Exception as e:
+#             return Response({'message': str(e), 'status': 400}, status=400)
+        
+#     def delete(self, request):
+#         try:
+#             note_id = request.data.get('note')
+#             user_id = request.user.id
+
+#             note = Notes.objects.get(id=note_id, user_id=user_id)
+
+#             for collaborator_id in request.data.get('collaborator', []):
+#                 collaborator = User.objects.get(id=collaborator_id)
+#                 note.collaborators.remove(collaborator)
+#             return Response({'message': f'Removed access to user', 'status': 200}, status=200)
+#         except Exception as e:
+#             return Response({'message': str(e), 'status': 400}, status=400)
             

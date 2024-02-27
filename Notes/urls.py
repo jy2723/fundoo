@@ -28,5 +28,6 @@ urlpatterns = [
     path('label', my_viewset, name = 'LabelApi'),
     path('archive', archive),
     path('trash', trash),
-    path('getone',views.GetoneAPI.as_view())
+    path('getone',views.GetoneAPI.as_view()),
+    path('collaborator',views.CollaboratorAPI.as_view())
 ]

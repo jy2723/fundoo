@@ -6,7 +6,14 @@ from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from django.conf import settings
 import json
 
-# Create your models here.
+class Collaborator(models.Model):
+    note = models.ForeignKey("Notes", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    access_type = models.CharField(max_length=20,default="read_only")
+    
+    class Meta:
+        db_table = 'collaborators'
+    
 class Notes(models.Model):
     title = models.CharField(max_length=254,null=True)
     description = models.TextField(null=True)
@@ -15,6 +22,8 @@ class Notes(models.Model):
     is_archive = models.BooleanField(default=False)
     is_trash = models.BooleanField(default=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    Colaborator = models.ManyToManyField(User,related_name='collaborators',through=Collaborator)
     
     class Meta:
         db_table = 'Notes'
