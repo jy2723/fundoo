@@ -12,12 +12,19 @@ from rest_framework import viewsets
 from .utils import Redismanager
 import json
 from django.db.models import Q
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
-class CreateAPI(APIView):
+
+class CreateAPI(viewsets.ViewSet):
     
     authentication_classes =(JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
-    
+    @swagger_auto_schema(request_body=NotesSerializer, responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'note created', 'status': 200,'data':{},}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized"})
+
     def post(self,request):
         try:
             request.data['user'] = request.user.id
@@ -32,19 +39,26 @@ class CreateAPI(APIView):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
+    @swagger_auto_schema(responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Successfully Fetched Data','data':{}, 'status': 200}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized"})  
     def get(self, request):
         try:
             cache_notes = Redismanager.get(f'user_{request.user.id}')
             if cache_notes:
-                return Response({'message': 'Successfully Fetched Data from Cache', 'status': 200, 'data': cache_notes_dict}, status=200)
-            # If cache_notes is empty or None, proceed with fetching data from database
+                return Response({'message': 'Successfully Fetched Data from Cache', 'status': 200, 'data': cache_notes}, status=200)
             lookup = Q(user_id=request.user.id) | Q(collaborator__user=request.user)
             notes = Notes.objects.filter(lookup)
             serializer = NotesSerializer(notes, many=True)
             return Response({'message': 'Successfully Fetched Data', 'status': 200, 'data': serializer.data}, status=200)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
-        
+    
+    @swagger_auto_schema(request_body=NotesSerializer, responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'note updated','data':{}, 'status': 201}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"notes not found"})
     def put(self,request):
         try:
             request.data['user'] = request.user.id
@@ -62,10 +76,15 @@ class CreateAPI(APIView):
                             'data': serializer.data}, status=201)
             
         except Notes.DoesNotExist:
-            return Response({'message': 'notes not found', 'status': 400},status = 404)
+            return Response({'message': 'notes not found', 'status': 404},status = 404)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Successfully Deleted Data','data':{}, 'status': 200}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Notes not found"})  
     def delete(self,request):
         try:
             
@@ -87,9 +106,15 @@ class GetoneAPI(APIView):
     authentication_classes =(JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
     
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('note_id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+    ], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Successfully Fetched Data','data':{}, 'status': 200}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized"})  
     def get(self,request):
         try:
-            note_id = request.data.get('note_id')
+            note_id = request.query_params.get('note_id')
             key = f'user_{request.user.id}'
             cache_notes = Redismanager.get_one(key, f'note_{note_id}')
             if cache_notes:
@@ -104,6 +129,12 @@ class ArchiveTrashAPI(viewsets.ViewSet):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('note_id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+    ], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Note moved to Archive', 'status': 200,'data':{}}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Note ID not found"})
     def update_archive(self, request):
         try:
             note_id = request.query_params.get('note_id')
@@ -120,6 +151,10 @@ class ArchiveTrashAPI(viewsets.ViewSet):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
 
+    @swagger_auto_schema(responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Archived notes', 'status': 200,'data':{}}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Note does not Exist"})
     def get_archived_notes(self, request):
         try:
             notes = Notes.objects.filter(user=request.user, is_archive=True, is_trash=False)
@@ -130,6 +165,12 @@ class ArchiveTrashAPI(viewsets.ViewSet):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
 
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('note_id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+    ], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Note moved to Trash', 'status': 200,'data':{}}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Note does not Exist"})
     def update_trash(self, request):
         try:
             note_id = request.query_params.get('note_id')
@@ -146,6 +187,10 @@ class ArchiveTrashAPI(viewsets.ViewSet):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
 
+    @swagger_auto_schema(responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Trashed notes', 'status': 200,'data':{},}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Note does not Exist"})
     def get_trash_notes(self, request):
         try:
             notes = Notes.objects.filter(user=request.user, is_trash=True)
@@ -159,6 +204,11 @@ class ArchiveTrashAPI(viewsets.ViewSet):
 class LabelAPI(viewsets.ViewSet):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
+    
+    @swagger_auto_schema(request_body=LabelSerializer, responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Label created', 'status': 200,'data':{},}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized"})
 
     def post(self,request):
         try:
@@ -170,6 +220,11 @@ class LabelAPI(viewsets.ViewSet):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
+    @swagger_auto_schema(responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'succusfully fetched data','data':{}, 'status': 200,}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized"})
+    
     def get(self,request):
         try:
             user_id = request.data.get('id')
@@ -178,7 +233,13 @@ class LabelAPI(viewsets.ViewSet):
             return Response({'message':'succusfully fetched data','status': 201,'data':serializer.data},status=201)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
-        
+    
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+    ], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'Label updated','data':{}, 'status': 201}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Label not found"})
     def put(self,request):
         try:
             user_id = request.data.get('id')
@@ -190,13 +251,19 @@ class LabelAPI(viewsets.ViewSet):
                             'data': serializer.data}, status=201)
             
         except Labels.DoesNotExist:
-            return Response({'message': 'label not found', 'status': 400},status = 404)
+            return Response({'message': 'label not found', 'status': 404},status = 404)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
-        
+    
+    @swagger_auto_schema(manual_parameters=[
+        openapi.Parameter('id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+    ], responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'label deleted','data':{}, 'status': 200}
+                         }),
+                                    400: "Bad Request", 401:"Unauthorized",404:"Label not found"})
     def delete(self,request):
         try:
-            user_id = request.data.get('id')
+            user_id = request.query_params.get('id')
             label = Labels.objects.get(id=user_id)
             label.delete() 
             return Response({'message': 'label deleted', 'status': 201, 
@@ -213,6 +280,27 @@ class CollaboratorAPI(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
     
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['note_id', 'user_ids'],
+        properties={
+            'note_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'user_ids': openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_INTEGER)
+            ),
+            'access_type': openapi.Schema(type=openapi.TYPE_STRING, default='read only')
+        }
+    ),
+    responses={
+        200: openapi.Response(description="Success", examples={
+            "application/json": {'message': 'Notes shared to users successfully', 'status': 200}
+        }),
+        400: "Bad Request",
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Note does not exist"
+    })
     def post(self, request):
         try:
             user_id = request.user.id
@@ -245,7 +333,27 @@ class CollaboratorAPI(APIView):
 
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
-        
+    
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['note_id', 'user_ids'],
+        properties={
+            'note_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'user_ids': openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_INTEGER)
+            )
+        }
+    ),
+    responses={
+        200: openapi.Response(description="Success", examples={
+            "application/json": {'message': 'Collaborator removed from note successfully', 'status': 200}
+        }),
+        400: "Bad Request",
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "User, Note, or Collaborator not found"
+    })
     def delete(self,request):
         try:
             user_id = request.user.id

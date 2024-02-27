@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import LabelAPI
+from .views import CreateAPI
 
 my_viewset = LabelAPI.as_view({
     'get': 'get',
@@ -8,6 +9,14 @@ my_viewset = LabelAPI.as_view({
     'put': 'put',
     'delete': 'delete'
 })
+
+viewset = CreateAPI.as_view({
+    'get': 'get',
+    'post': 'post',
+    'put': 'put',
+    'delete': 'delete'
+})
+
 
 archive = views.ArchiveTrashAPI.as_view({
     'patch': 'update_archive',
@@ -21,10 +30,7 @@ trash = views.ArchiveTrashAPI.as_view({
 
 
 urlpatterns = [
-    path('', views.CreateAPI.as_view()),
-    path('retrive',views.CreateAPI.as_view()),
-    path('update',views.CreateAPI.as_view()),
-    path('delete',views.CreateAPI.as_view()),
+    path('notes',viewset,name= 'CreateAPI'),
     path('label', my_viewset, name = 'LabelApi'),
     path('archive', archive),
     path('trash', trash),

@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'Notes',
-    'django_celery_beat'
+    'django_celery_beat',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -200,3 +201,15 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ALWAYS_EAGER = False
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+SWAGGER_SETTINGS = {
+    "DEFAULT_MODEL_RENDERING": "example",
+    "USE_SESSION_AUTH": False,
+    "SECURITY_DEFINITIONS": {
+        "Bearer":{
+            "type": "apiKey",
+            "in": "header",
+            "name": "Authorization"
+        }
+    }
+}

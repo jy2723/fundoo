@@ -16,12 +16,17 @@ import json
 from .models import User
 from jwt import PyJWTError
 from .tasks import send_email_task
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 
 # Create your views here.
 
 
-class UserAPI(APIView):    
+class UserAPI(APIView):   
+    @swagger_auto_schema(request_body=RegisterSerializer, responses={201: openapi.Response(description="Register response", examples={
+"application/json": {'message': 'string', 'status': 201, 'data': {}}
+                         }),400: "Invalid email or password"}) 
     def post(self, request):
         try:
             serializer = RegisterSerializer(data=request.data)
@@ -40,7 +45,11 @@ class UserAPI(APIView):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
 
-            
+    @swagger_auto_schema(manual_parameters=[openapi.Parameter('token', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)], 
+                         responses={200: openapi.Response(description="Response", examples={
+                             "application/json": {'message': 'User verified successfully', 'status': 200}
+                         }),
+                                    400: "Bad Request"})  
     def get(self, request):
         try:
             token = request.query_params.get('token')
@@ -63,6 +72,11 @@ class UserAPI(APIView):
             return JsonResponse({'message': str(e), 'status': 400})
         
 class AuthUserAPI(APIView):
+    @swagger_auto_schema(request_body=LoginSerializer, 
+                         responses={200: openapi.Response(description="Login response", examples={
+                             "application/json": {'message': 'string', 'status': 200, 'data': {}}
+                         }),
+                                    401: "Invalid username or password"})
 
     def post(self, request):
         try:
