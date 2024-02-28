@@ -55,9 +55,14 @@ def set_reminder(instance, **kwargs):
             month_of_year=month
         )
         
-        task = PeriodicTask.objects.get_or_create(
-            crontab=crontab,
-            name=f"note-{instance.id}--user-{instance.user.id}",
-            task = 'user.tasks.send_email_task',
-            args = json.dumps([f'{instance.title}', 'Reminder for notes', settings.EMAIL_HOST_USER, [instance.user.email]])
-        )
+        task = PeriodicTask.objects.filter(name=f"note-{instance.id}--user-{instance.user.id}").first()
+        if task:
+            task.crontab = crontab
+            task.save()
+        else:
+            task = PeriodicTask.objects.update_or_create(
+                crontab=crontab,
+                name=f"note-{instance.id}--user-{instance.user.id}",
+                task = 'user.tasks.send_email_task',
+                args = json.dumps([f'{instance.title}', 'Reminder for notes', settings.EMAIL_HOST_USER, [instance.user.email]])
+            )

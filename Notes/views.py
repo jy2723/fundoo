@@ -20,10 +20,26 @@ class CreateAPI(viewsets.ViewSet):
     
     authentication_classes =(JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
-    @swagger_auto_schema(request_body=NotesSerializer, responses={200: openapi.Response(description="Response", examples={
-                             "application/json": {'message': 'note created', 'status': 200,'data':{},}
-                         }),
-                                    400: "Bad Request", 401:"Unauthorized"})
+    @swagger_auto_schema(
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'title': openapi.Schema(type=openapi.TYPE_STRING),
+            'description': openapi.Schema(type=openapi.TYPE_STRING),
+            'color': openapi.Schema(type=openapi.TYPE_STRING),
+            'reminder': openapi.Schema(type=openapi.TYPE_STRING,example="YYYY-MM-DDTHH:MM:SSZ"),
+        },
+        required=['title', 'description', 'color', 'reminder']
+    ),
+    responses={
+        201: openapi.Response(
+            description="Note Created",
+            examples={"application/json": {'message': 'Note Created', 'status': 201, 'data': {}}}
+        ),
+        400: "Bad Request",
+        401: "Unauthorized"
+    }
+)
 
     def post(self,request):
         try:
@@ -55,10 +71,28 @@ class CreateAPI(viewsets.ViewSet):
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
-    @swagger_auto_schema(request_body=NotesSerializer, responses={200: openapi.Response(description="Response", examples={
-                             "application/json": {'message': 'note updated','data':{}, 'status': 201}
-                         }),
-                                    400: "Bad Request", 401:"Unauthorized",404:"notes not found"})
+    @swagger_auto_schema(
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'id':openapi.Schema(type=openapi.TYPE_INTEGER),
+            'title': openapi.Schema(type=openapi.TYPE_STRING),
+            'description': openapi.Schema(type=openapi.TYPE_STRING),
+            'color': openapi.Schema(type=openapi.TYPE_STRING),
+            'reminder': openapi.Schema(type=openapi.TYPE_STRING,example="YYYY-MM-DDTHH:MM:SSZ"),
+        },
+        required=['id','title', 'description', 'color']
+    ),
+    responses={
+        201: openapi.Response(
+            description="Note updated",
+            examples={"application/json": {'message': 'Note Updated', 'status': 201, 'data': {}}}
+        ),
+        400: "Bad Request",
+        401: "Unauthorized",
+        404:"notesnot found"
+    }
+)
     def put(self,request):
         try:
             request.data['user'] = request.user.id
@@ -205,13 +239,27 @@ class LabelAPI(viewsets.ViewSet):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
     
-    @swagger_auto_schema(request_body=LabelSerializer, responses={200: openapi.Response(description="Response", examples={
-                             "application/json": {'message': 'Label created', 'status': 200,'data':{},}
-                         }),
-                                    400: "Bad Request", 401:"Unauthorized"})
+    @swagger_auto_schema(
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['name']
+    ),
+    responses={
+        201: openapi.Response(
+            description="Note Created",
+            examples={"application/json": {'message': 'label Created', 'status': 201, 'data': {}}}
+        ),
+        400: "Bad Request",
+        401: "Unauthorized"
+    }
+)
 
     def post(self,request):
         try:
+            request.data['user'] = request.user.id
             serializer = LabelSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
@@ -227,24 +275,35 @@ class LabelAPI(viewsets.ViewSet):
     
     def get(self,request):
         try:
-            user_id = request.data.get('id')
-            label = Labels.objects.filter(user_id=user_id)
+            label = Labels.objects.filter(user_id=request.user.id)
             serializer = LabelSerializer(label, many=True)
             return Response({'message':'succusfully fetched data','status': 201,'data':serializer.data},status=201)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
-    @swagger_auto_schema(manual_parameters=[
-        openapi.Parameter('id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
-    ], responses={200: openapi.Response(description="Response", examples={
-                             "application/json": {'message': 'Label updated','data':{}, 'status': 201}
-                         }),
-                                    400: "Bad Request", 401:"Unauthorized",404:"Label not found"})
+    @swagger_auto_schema(
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'name': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['name']
+    ),
+    responses={
+        201: openapi.Response(
+            description="Note Created",
+            examples={"application/json": {'message': 'label Created', 'status': 201, 'data': {}}}
+        ),
+        400: "Bad Request",
+        401: "Unauthorized"
+    }
+)
     def put(self,request):
         try:
-            user_id = request.data.get('id')
-            label = Labels.objects.get(user_id=user_id)
-            serializer = LabelSerializer(label,data=request.data)
+            request.data['user'] = request.user.id
+            label = Labels.objects.get(id = request.data.get('id'), user_id=request.data.get('user'))
+            serializer = LabelSerializer(instance = label, data = request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response({'message': 'label updated', 'status': 201, 
