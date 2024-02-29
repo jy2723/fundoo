@@ -36,8 +36,12 @@ class Labels(models.Model):
     name = models.CharField(max_length=50,null = False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     
+    class Meta:
+        db_table = 'labels'
+        
     def __str__(self):
         return self.name
+    
    
 @receiver(post_save, sender=Notes)
 def set_reminder(instance, **kwargs):
@@ -60,7 +64,7 @@ def set_reminder(instance, **kwargs):
             task.crontab = crontab
             task.save()
         else:
-            task = PeriodicTask.objects.update_or_create(
+            task = PeriodicTask.objects.create(
                 crontab=crontab,
                 name=f"note-{instance.id}--user-{instance.user.id}",
                 task = 'user.tasks.send_email_task',

@@ -14,6 +14,7 @@ import json
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.db import connection
 
 
 class CreateAPI(viewsets.ViewSet):
@@ -260,11 +261,18 @@ class LabelAPI(viewsets.ViewSet):
     def post(self,request):
         try:
             request.data['user'] = request.user.id
-            serializer = LabelSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+            with connection.cursor() as cursor:
+                cursor.execute("INSERT INTO labels (name, user_id) values (%s, %s)", (request.data['name'], request.data['user']))
+                cursor.execute("select * from labels order by id desc fetch first row only")
+                columns = [col[0] for col in cursor.description]
+                data = cursor.fetchone() 
+                data = dict(zip(columns, data))
+            # request.data['user'] = request.user.id
+            # serializer = LabelSerializer(data=request.data)
+            # serializer.is_valid(raise_exception=True)
+            # serializer.save()
             return Response({'message': 'label created', 'status': 201, 
-                            'data': serializer.data}, status=201)
+                            'data': data}, status=201)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
@@ -275,9 +283,17 @@ class LabelAPI(viewsets.ViewSet):
     
     def get(self,request):
         try:
+            # with connection.cursor() as cursor:
+            #     query = "SELECT * FROM labels WHERE user_id = %s"
+            #     cursor.execute(query, [request.user.id])
+            #     columns = [col[0] for col in cursor.description]
+            #     print(columns)
+            #     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
             label = Labels.objects.filter(user_id=request.user.id)
+            label = Labels.objects.raw("select * from labels where user_id= %s",(request.user.id,))
             serializer = LabelSerializer(label, many=True)
-            return Response({'message':'succusfully fetched data','status': 201,'data':serializer.data},status=201)
+            return Response({'message':'succusfully fetched data','status': 201,'data': serializer.data},status=201)
         except Exception as e:
             return Response({'message': str(e), 'status': 400}, status=400)
     
@@ -301,13 +317,21 @@ class LabelAPI(viewsets.ViewSet):
 )
     def put(self,request):
         try:
+            # request.data['user'] = request.user.id
+            # label = Labels.objects.get(id = request.data.get('id'), user_id=request.data.get('user'))
+            # serializer = LabelSerializer(instance = label, data = request.data)
+            # serializer.is_valid(raise_exception=True)
+            # serializer.save()
             request.data['user'] = request.user.id
-            label = Labels.objects.get(id = request.data.get('id'), user_id=request.data.get('user'))
-            serializer = LabelSerializer(instance = label, data = request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+            name = request.data.get('name')
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE labels SET name = %s WHERE user_id = %s and id = %s", (name, request.data['user'],request.data.get('id')))
+                cursor.execute("SELECT * FROM labels WHERE user_id = %s and id = %s", (request.data['user'],request.data.get('id')))
+                columns = [col[0] for col in cursor.description]
+                data = cursor.fetchone() 
+                data = dict(zip(columns, data))
             return Response({'message': 'label updated', 'status': 201, 
-                            'data': serializer.data}, status=201)
+                            'data': data}, status=201)
             
         except Labels.DoesNotExist:
             return Response({'message': 'label not found', 'status': 404},status = 404)
@@ -315,16 +339,21 @@ class LabelAPI(viewsets.ViewSet):
             return Response({'message': str(e), 'status': 400}, status=400)
     
     @swagger_auto_schema(manual_parameters=[
-        openapi.Parameter('id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
+        openapi.Parameter('label_id', openapi.IN_QUERY, type=openapi.TYPE_STRING, required=True)
     ], responses={200: openapi.Response(description="Response", examples={
                              "application/json": {'message': 'label deleted','data':{}, 'status': 200}
                          }),
                                     400: "Bad Request", 401:"Unauthorized",404:"Label not found"})
     def delete(self,request):
         try:
-            user_id = request.query_params.get('id')
-            label = Labels.objects.get(id=user_id)
-            label.delete() 
+            request.data['user'] = request.user.id
+            label_id = request.query_params.get('label_id')
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM labels WHERE id = %s AND user_id = %s", (label_id, request.data['user']))
+            # # label_id = request.query_params.get('label_id')
+            # label = Labels.objects.raw("DELETE * from labels where user_id= %s and label_id= %s",(request.user.id,request.query_params.get('label_id')))
+            # # label = Labels.objects.get(id=label_id)
+            # label.delete() 
             return Response({'message': 'label deleted', 'status': 201, 
                             }, status=201)
         
